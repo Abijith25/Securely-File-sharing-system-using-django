@@ -15,7 +15,17 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path
-
+#imports for serving media files during development
+from django.conf import settings
+from django.conf.urls.static import static
+from django.urls import path, include
 urlpatterns = [
     path('admin/', admin.site.urls),
+
+    path('', include('filecrypts.urls')), 
+    #This line tells Django: "For the base URL (i.e., /), load the URL patterns defined inside the cryptoapp app."
 ]
+if settings.DEBUG:  #This condition checks if Django is running in development mode.
+
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+    #  This adds URL patterns to serve media files (like uploaded .txt files) during development.
