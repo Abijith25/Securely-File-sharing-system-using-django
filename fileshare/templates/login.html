@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Secure File Sharing</title>
+    <style>
+        body {
+            background: linear-gradient(to right, #e0c3fc, #8ec5fc);
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+        .container {
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+            padding: 40px;
+            width: 300px;
+            text-align: center;
+        }
+        .logo {
+            font-size: 24px;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+        .subtitle {
+            margin-bottom: 20px;
+            color: #888;
+        }
+        input[type="email"], input[type="password"] {
+            width: 100%;
+            padding: 10px;
+            margin: 10px 0;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .remember-me {
+            display: flex;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        button {
+            width: 100%;
+            padding: 10px;
+            background-color: #3b82f6;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        button:hover {
+            background-color: #2563eb;
+        }
+        .link {
+            margin-top: 10px;
+            color: #3b82f6;
+            text-decoration: none;
+        }
+        .features {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 20px;
+        }
+        .feature {
+            background: #f0f0f0;
+            border-radius: 5px;
+            padding: 10px;
+            text-align: left;
+            width: 48%;
+        }
+          .forgot-password {
+      margin-bottom: 10px; /* Adjust as necessary */
+      margin-top:10px;
+  }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="logo">S3 Files</div>
+        <div class="subtitle">Secure File Sharing for Organizations</div>
+        <form method="post">
+            {% csrf_token %}
+             {% if error %}
+               <div style="color:red;">{{ error }}</div>
+             {% endif %}
+            <input type="text" name="user_id" placeholder="User ID" required>
+            <input type="password" name="password" placeholder="Password" required>
+            <div class="remember-me">
+                <input type="checkbox" id="remember">
+                <label for="remember">Remember me</label>
+            </div>
+            <button type="submit">Sign in</button>
+	 <div class="forgot-password"><a href="#" class="link forgot-password">Forgot password?</a></div>
+        </form>
+    </div>
+</body>
+</html>

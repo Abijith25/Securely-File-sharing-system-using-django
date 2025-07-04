@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+	<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css" rel="stylesheet">
+
+    <style>
+   body {
+    background: linear-gradient(135deg, #cfd9df, #e2ebf0);
+    min-height: 100vh;
+    background-attachment: fixed;
+    background-repeat: no-repeat;
+    background-size: cover;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    color: #333;
+}
+
+	.card {
+    			background: linear-gradient(to right, #ffffff, #f9f9f9);
+    			border-radius: 12px;
+		}
+
+
+input:focus, button:focus {
+    box-shadow: 0 0 0 0.15rem rgba(255, 193, 7, 0.25);
+}
+
+.table th, .table td {
+    vertical-align: middle;
+}
+
+
+    .container {
+    margin-top: 50px;
+    background: #ffffffee;
+    border-radius: 12px;
+    padding: 30px;
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
+    backdrop-filter: blur(3px);
+}
+	
+    h2 {
+        font-weight: bold;
+    }
+
+    .table th, .table td {
+        text-align: center;
+        vertical-align: middle;
+    }
+
+    .btn-upload {
+        margin-bottom: 20px;
+    }
+
+    @media (min-width: 576px) {
+        .btn-upload {
+            float: right;
+        }
+    }
+          </style>
+    <title>SecureShare</title>
+</head>
+
+<body>
+<div style="position: absolute; top: 0; left: 0; width: 100%; z-index: -1;">
+    <svg viewBox="0 0 1440 320" style="display: block;">
+        <path fill="#dfe9f3" fill-opacity="1" d="M0,64L48,80C96,96,192,128,288,128C384,128,480,96,576,101.3C672,107,768,149,864,165.3C960,181,1056,171,1152,154.7C1248,139,1344,117,1392,106.7L1440,96L1440,320L1392,320C1344,320,1248,320,1152,320C1056,320,960,320,864,320C768,320,672,320,576,320C480,320,384,320,288,320C192,320,96,320,48,320L0,320Z"></path>
+    </svg>
+</div>
+
+<div class="container">
+
+    <!-- URL Decryption Section -->
+    <div class="card shadow-sm border-0 mb-4">
+        <div class="card-body">
+            <h4 class="mb-3">
+                <i class="fas fa-key text-warning"></i> Decrypt File from URL
+            </h4>
+            <div class="row">
+                <div class="col-md-9 col-sm-12 mb-2">
+                    <input type="text" id="decryptUrlInput" class="form-control form-control-lg rounded" placeholder="Paste encrypted file URL here">
+                </div>
+                <div class="col-md-3 col-sm-12">
+                    <button class="btn btn-lg btn-warning w-100 rounded" onclick="handleDecrypt()">
+                        <i class="fas fa-lock-open"></i> Decrypt
+                    </button>
+                </div>
+            </div>
+            <div class="mt-3" id="decryptedFileName" style="display: none;">
+                <div class="alert alert-info mb-0 shadow-sm">
+                    <i class="fas fa-file-alt"></i> Decrypted File Name:
+                    <strong id="fileNameDisplay" class="ml-1">Example_File_2025.pdf</strong>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Uploaded Files Section -->
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h2 class="font-weight-bold mb-0"><i class="fas fa-upload text-primary"></i> Uploaded Files</h2>
+        <button class="btn btn-primary btn-upload" data-toggle="modal" data-target="#uploadModal">
+            <i class="fas fa-cloud-upload-alt"></i> Upload
+        </button>
+    </div>
+
+    <div class="table-responsive">
+        <table class="table table-hover table-bordered bg-white shadow-sm">
+            <thead class="thead-light">
+                <tr>
+                    <th>Filename</th>
+                    <th>File Type</th>
+                    <th>Uploaded Date</th>
+                    <th>View</th>
+                    <th>Share</th>
+                    <th>Decrypt</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>Document_2023.pdf</td>
+                    <td>PDF</td>
+                    <td>2023-08-15</td>
+                    <td><button class="btn btn-info btn-sm">View Status</button></td>
+                    <td><button class="btn btn-success btn-sm">Share</button></td>
+                    <td><button class="btn btn-warning btn-sm">Decrypt</button></td>
+                </tr>
+		<tr>
+                    <td>Presentation_2023.pptx</td>
+                    <td>Presentation</td>
+                    <td>2023-07-20</td>
+                    <td><button class="btn btn-info">View Status</button></td>
+                    <td><button class="btn btn-success">Share</button></td>
+                    <td><button class="btn btn-warning">Decrypt</button></td>
+                </tr>
+		<tr>
+                    <td>Presentation_2023.pptx</td>
+                    <td>Presentation</td>
+                    <td>2023-07-20</td>
+                    <td><button class="btn btn-info">View Status</button></td>
+                    <td><button class="btn btn-success">Share</button></td>
+                    <td><button class="btn btn-warning">Decrypt</button></td>
+                </tr>
+		<tr>
+                    <td>Spreadsheet_2023.xlsx</td>
+                    <td>Spreadsheet</td>
+                    <td>2023-07-15</td>
+                    <td><button class="btn btn-info">View Status</button></td>
+                    <td><button class="btn btn-success">Share</button></td>
+                    <td><button class="btn btn-warning">Decrypt</button></td>
+                </tr>
+		<tr>
+                    <td>Spreadsheet_2023.xlsx</td>
+                    <td>Spreadsheet</td>
+                    <td>2023-07-15</td>
+                    <td><button class="btn btn-info">View Status</button></td>
+                    <td><button class="btn btn-success">Share</button></td>
+                    <td><button class="btn btn-warning">Decrypt</button></td>
+                </tr>
+		  <tr>
+                    <td>Image_2023.jpg</td>
+                    <td>Image</td>
+                    <td>2023-08-10</td>
+                    <td><button class="btn btn-info">View Status</button></td>
+                    <td><button class="btn btn-success">Share</button></td>
+                    <td><button class="btn btn-warning">Decrypt</button></td>
+                </tr>
+		  <tr>
+                    <td>Image_2023.jpg</td>
+                    <td>Image</td>
+                    <td>2023-08-10</td>
+                    <td><button class="btn btn-info">View Status</button></td>
+                    <td><button class="btn btn-success">Share</button></td>
+                    <td><button class="btn btn-warning">Decrypt</button></td>
+                </tr>
+		<tr>
+                    <td>Document_2023.pdf</td>
+                    <td>PDF</td>
+                    <td>2023-08-15</td>
+                    <td><button class="btn btn-info btn-sm">View Status</button></td>
+                    <td><button class="btn btn-success btn-sm">Share</button></td>
+                    <td><button class="btn btn-warning btn-sm">Decrypt</button></td>
+                </tr>
+		<tr>
+                    <td>Document_2023.pdf</td>
+                    <td>PDF</td>
+                    <td>2023-08-15</td>
+                    <td><button class="btn btn-info btn-sm">View Status</button></td>
+                    <td><button class="btn btn-success btn-sm">Share</button></td>
+                    <td><button class="btn btn-warning btn-sm">Decrypt</button></td>
+                </tr>
+
+            </tbody>
+        </table>
+    </div>
+</div>
+
+
+    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.2/dist/umd/popper.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+	<script>
+    function handleDecrypt() {
+        const input = document.getElementById('decryptUrlInput').value.trim();
+        const display = document.getElementById('decryptedFileName');
+        const fileName = document.getElementById('fileNameDisplay');
+
+        if (input) {
+            // Simulate file name extraction (you can replace with real logic)
+            const extractedName = "Decrypted_" + input.split('/').pop();
+            fileName.textContent = extractedName;
+            display.style.display = 'block';
+        } else {
+            display.style.display = 'none';
+            alert("Please enter a valid URL.");
+        }
+    }
+</script>
+
+</body>
+
+</html>
