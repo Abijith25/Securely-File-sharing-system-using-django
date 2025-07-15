@@ -516,33 +516,55 @@
     </div>
   </div>
 </div>
+<h5 class="section-title">Share to other organization</h5>
+<div class="row mb-4 g-3">
+  <!-- Left Block -->
+  <div class="col-md-6">
+    <div class="mb-3">
+      <label for="orgTag" class="form-label text-light">Organization Tag</label>
+      <select id="orgTag" class="form-select">
+        <option selected disabled>Select Organization</option>
+        {% for org in shareable_orgs %}
+         <option value="{{ org }}">{{ org }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="mb-3">
+      <label for="fileName" class="form-label text-light">File Name</label>
+      <select id="fileName" class="form-select">
+        <option selected disabled>Select File</option>
+        {% for fname in uploaded_filenames %}
+            <option value="{{ fname }}">{{ fname }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="mb-3">
+      <label for="shared_users" class="form-label text-light">Users</label>
+      <input type="text" id="shared_users" class="form-control" placeholder="Enter user ids seperated by comma">
+    </div>
+  </div>
 
+  <!-- Right Block -->
+  <div class="col-md-6">
+    <div class="mb-3">
+      <label class="form-label text-light">Duration</label>
+      <div class="d-flex gap-2">
+        <input type="date" class="form-control">
+        <input type="date" class="form-control">
+      </div>
+    </div>
+    <div class="mb-3">
+      <label for="generatedLink" class="form-label text-light">Generated Link</label>
+      <input type="text" id="generatedLink" class="form-control" readonly placeholder="Link will appear here">
+      <button class="btn btn-outline-secondary" type="button" onclick="copyLink()">Copy</button>
+    </div>
+  </div>
 
-            <h5 class="section-title">Recent Files</h5>
-            <div class="row">
-                {% for ft, count in file_type_counts %}
-                <div class="col-xl-3 col-lg-4 col-md-6">
-                    <div class="file-card">
-                        {% if ft == 'pdf' %}
-                        <i class="fas fa-file-pdf fa-2x text-danger mb-2"></i>
-                        {% elif ft == 'jpg' or ft == 'jpeg' or ft == 'png' %}
-                        <i class="fas fa-file-image fa-2x text-info mb-2"></i>
-                        {% elif ft == 'xlsx' or ft == 'xls' %}
-                        <i class="fas fa-file-excel fa-2x text-success mb-2"></i>
-                        {% else %}
-                        <i class="fas fa-file fa-2x text-secondary mb-2"></i>
-                        {% endif %}
-                        <div class="file-name">{{ count }}</div>
-                    </div>
-                </div>
-                {% empty %}
-                <div class="col-xl-3 col-lg-4 col-md-6">
-                    <div class="file-card">
-                        <div class="file-name">No files uploaded yet.</div>
-                    </div>
-                </div>
-                {% endfor %}
-            </div>
+  <!-- Submit Button -->
+  <div class="col-12 text-end">
+    <button type="submit" class="btn btn-primary">Generate Link</button>
+  </div>
+</div>
 
             <div class="controls-section">
                 <h4 class="section-title mb-0">All Files</h4>
@@ -640,6 +662,16 @@
 document.getElementById('fileInput').addEventListener('change', function() {
     document.getElementById('uploadForm').submit();
 });
+</script>
+
+<script>
+function copyLink() {
+  var copyText = document.getElementById("shareLink");
+  copyText.select();
+  copyText.setSelectionRange(0, 99999); // for mobile
+  document.execCommand("copy");
+  alert("Link copied to clipboard: " + copyText.value);
+}
 </script>
 
 </body>

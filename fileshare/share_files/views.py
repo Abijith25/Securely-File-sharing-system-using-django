@@ -223,12 +223,48 @@ def shared_with_me(request):
         'role': user_info['user_role'],
     })
 
+def shareable_organizations(user_id):
+    with connection.cursor() as cursor:
+        cursor.execute("""
+            SELECT org_tag FROM users WHERE user_id=%s
+        """, [user_id])
+        row = cursor.fetchone()
+        if row and row[0]:
+            org_tag = row[0]
+        else:
+            return []  # no org_tag → return empty
+        # Now get shareable_organizations from organization table
+        cursor.execute("""
+            SELECT shareable_organizations
+            FROM organization
+            WHERE org_tag=%s
+        """, [org_tag])
+        row = cursor.fetchone()
+        if row and row[0]:
+            return row[0].strip('{}').split(',')
+        else:
+            return []
+
+def get_uploaded_filenames(user_id):
+    with connection.cursor() as cursor:
+        cursor.execute("""
+            SELECT doc_name
+            FROM documents
+            WHERE uploaded_user=%s
+        """, [user_id])
+        uploaded_filenames = [r[0] for r in cursor.fetchall()]
+    return uploaded_filenames
+
 def shared_by_me(request):
     user_id = request.session.get('user_id')
     user_info = user_profile(user_id)
+    shareable_orgs = shareable_organizations(user_id)
+    uploaded_filenames = get_uploaded_filenames(user_id)
     return render(request, 'shared_by_me.html',
         {
         'user_name': user_info['user_name'], 
         'role': user_info['user_role'],
+        'shareable_orgs': shareable_orgs,
+        'uploaded_filenames': uploaded_filenames,
     }
     )
