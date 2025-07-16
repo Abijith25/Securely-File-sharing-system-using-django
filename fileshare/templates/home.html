@@ -577,6 +577,7 @@
                         <th>Type</th>
                         <th>Size</th>
                         <th>Uploaded On</th>
+                        <th>Share</th>  
                         <th>decrypt</th>
                     </tr>
                     </thead>
@@ -595,6 +596,12 @@
                         <td><span class="file-size">48 MB</span></td>
                         <td><span class="file-date">{{ file.3 }}</span></td>
                         <td>
+                            <button class="btn btn-primary file-size" data-bs-toggle="modal"
+                                 data-bs-target="#shareModal" onclick="setDocId('{{ file.0 }}')">
+                                    Share
+                            </button>                           
+                        </td>
+                        <td>
                             <a href="{% url 'decrypt_and_download' file.0 %}">
                                 <button class="btn btn-primary file-size">Decrypt</button>
                             </a>                           
@@ -611,6 +618,40 @@
         </div>
     </div>
 </div>
+
+
+<!-- Share Modal -->
+<div class="modal fade" id="shareModal" tabindex="-1" aria-labelledby="shareModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <form method="post" action="{% url 'share_document' %}">
+        {% csrf_token %}
+        <div class="modal-header">
+          <h5 class="modal-title" id="shareModalLabel">Share Document</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <input type="hidden" name="doc_id" id="modalDocId">
+          <div class="mb-3">
+            <label for="userIds" class="form-label">User IDs (comma-separated)</label>
+            <input type="text" class="form-control" name="user_ids" id="userIds" required>
+          </div>
+          <div class="mb-3">
+            <label for="duration" class="form-label">Share Duration (in hours)</label>
+            <input type="number" class="form-control" name="duration" id="duration" min="1" required>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="submit" class="btn btn-primary">Share</button>
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+
+
 {% if show_toast %}
 <div id="toast" style="
     visibility: hidden;
@@ -641,6 +682,14 @@ document.getElementById('fileInput').addEventListener('change', function() {
     document.getElementById('uploadForm').submit();
 });
 </script>
+
+<script>
+function setDocId(docId) {
+    document.getElementById('modalDocId').value = docId;
+}
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 
 </body>
 </html>

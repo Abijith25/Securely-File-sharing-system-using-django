@@ -1,18 +1,17 @@
 import uuid
 import os
 import base64
-from datetime import datetime
 from django.shortcuts import render,redirect
 from django.contrib.auth.decorators import login_required
 from django.db import connection
 from django.contrib.auth.hashers import check_password
-from datetime import datetime
+from datetime import timedelta, datetime
 from django.core.files.storage import FileSystemStorage
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.backends import default_backend
 from django.core.files.base import ContentFile
 from django.http import HttpResponse
-import base64
+
 
 def user_profile(user_id):
     with connection.cursor() as cursor:
@@ -96,6 +95,45 @@ def get_uploaded_files(user_id, search_query='', file_type_filter=''):
 
         cursor.execute(query, params)
         return cursor.fetchall()
+
+from datetime import timedelta, datetime
+
+def share_document(request):
+    if request.method == 'POST':
+        doc_id = request.POST.get('doc_id')
+        user_ids_raw = request.POST.get('user_ids', '')
+        duration_hours = int(request.POST.get('duration', '1'))
+
+        # split user IDs and clean them
+        user_ids = [uid.strip() for uid in user_ids_raw.split(',') if uid.strip()]
+
+        # get current user's org_tag
+        user_id = request.session.get('user_id')
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT org_tag FROM users WHERE user_id=%s", [user_id])
+            row = cursor.fetchone()
+            org_tag = row[0] if row else None
+
+        # get valid users in same organization
+        with connection.cursor() as cursor:
+            cursor.execute("""
+                SELECT user_id FROM users WHERE user_id = ANY(%s) AND org_tag=%s
+            """, [user_ids, org_tag])
+            valid_user_ids = [r[0] for r in cursor.fetchall()]
+
+        shared_at = datetime.now()
+        time_limit = timedelta(hours=duration_hours)
+
+        # insert one row per valid user
+        with connection.cursor() as cursor:
+            for shared_user_id in valid_user_ids:
+                cursor.execute("""
+                    INSERT INTO shared_documents (doc_id, shared_user_id, shared_at, shared_status, download_count, current_download_count, time_limit,shared_by_user_id)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s,%s)
+                """, [
+                    doc_id, shared_user_id, shared_at, 'Internal', 3, 0, time_limit,user_id
+                ])
+        return redirect(request.META.get('HTTP_REFERER', 'home'))
 
 def home(request):
     user_id = request.session.get('user_id')
@@ -241,7 +279,7 @@ def shareable_organizations(user_id):
         """, [org_tag])
         row = cursor.fetchone()
         if row and row[0]:
-            return row[0].strip('{}').split(',')
+            return row[0]
         else:
             return []
 
@@ -255,16 +293,44 @@ def get_uploaded_filenames(user_id):
         uploaded_filenames = [r[0] for r in cursor.fetchall()]
     return uploaded_filenames
 
+def shared_documents(user_id):
+    with connection.cursor() as cursor:
+        cursor.execute("""
+            SELECT d.doc_id,d.doc_name, d.doc_type, s.shared_user_id, s.shared_at, s.shared_status, s.access_status,s.download_count,s.current_download_count
+            FROM shared_documents s
+            JOIN documents d ON s.doc_id = d.doc_id
+            WHERE d.uploaded_user = %s
+            ORDER BY s.shared_at DESC
+        """, [user_id])
+        return cursor.fetchall()
+
+def filter_shared_by_me(user_id):
+    with connection.cursor() as cursor:
+        cursor.execute("""
+            SELECT enumlabel
+            FROM pg_enum
+            JOIN pg_type ON pg_enum.enumtypid = pg_type.oid
+            WHERE pg_type.typname = 'share_status'
+            ORDER BY enumsortorder
+        """)
+        rows = cursor.fetchall()
+        return [row[0] for row in rows]
+
+
 def shared_by_me(request):
     user_id = request.session.get('user_id')
     user_info = user_profile(user_id)
     shareable_orgs = shareable_organizations(user_id)
     uploaded_filenames = get_uploaded_filenames(user_id)
+    shared_files = shared_documents(user_id)
+    filter=filter_shared_by_me(user_id)
     return render(request, 'shared_by_me.html',
         {
         'user_name': user_info['user_name'], 
         'role': user_info['user_role'],
         'shareable_orgs': shareable_orgs,
         'uploaded_filenames': uploaded_filenames,
+        'shared_files':shared_files,
+        'filter':filter
     }
     )

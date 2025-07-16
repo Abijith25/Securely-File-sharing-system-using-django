@@ -573,21 +573,11 @@
                         <select name="file_type" class="form-select" aria-label="Filter"
                                 onchange="document.getElementById('filterForm').submit();">
                             <option value="">All Files</option>
-                            {% for ft in user_file_types %}
-                                <option value="{{ ft }}" {% if ft == request.GET.file_type %}selected{% endif %}>
-                                    {{ ft|upper }}
-                                </option>
+                            {% for ft in filter %}
+                                <option value="{{ ft }}">{{ ft|upper }}</option>
                             {% endfor %}
                         </select>
                     </form>
-
-                    <form id="uploadForm" action="{% url 'home' %}" method="post" enctype="multipart/form-data">
-                        {% csrf_token %}
-                        <input type="file" name="file" id="fileInput" style="display: none;" required>
-                        <button class="btn btn-primary" onclick="document.getElementById('fileInput').click();">
-                        <i class="fas fa-upload"></i>Upload
-                    </button>
-                </form>
                 </div>
             </div>
 
@@ -597,25 +587,32 @@
                     <tr>
                         <th>Name</th>
                         <th>Type</th>
-                        <th>Size</th>
-                        <th>Uploaded On</th>
+                        <th>Shared to</th>
+                        <th>Shared at</th>
+                        <th>Shared status</th>
+                        <th>Access status</th>
+                        <th>Max downloads</th>
+                        <th>Current downloads</th>
                         <th>decrypt</th>
                     </tr>
                     </thead>
                     <tbody>
-                    {% for file in uploaded_files %}
+                    {% for file in shared_files %}
                     <tr>
                         <td>
                             <div class="d-flex align-items-center">
-                                <i class="fas fa-folder text-warning file-icon"></i>
                                 <div>
                                     <div class="file-name-cell">{{ file.1 }}</div>
                                 </div>
                             </div>
                         </td>
                         <td><span class="file-type">{{ file.2 }}</span></td>
-                        <td><span class="file-size">48 MB</span></td>
                         <td><span class="file-date">{{ file.3 }}</span></td>
+                        <td><span class="file-date">{{ file.4 }}</span></td>
+                        <td><span class="file-date">{{ file.5 }}</span></td>
+                        <td><span class="file-date">{{ file.6 }}</span></td>
+                        <td><span class="file-date">{{ file.7 }}</span></td>
+                        <td><span class="file-date">{{ file.8 }}</span></td>
                         <td>
                             <a href="{% url 'decrypt_and_download' file.0 %}">
                                 <button class="btn btn-primary file-size">Decrypt</button>
@@ -657,12 +654,6 @@
   setTimeout(function(){ toast.style.visibility = "hidden"; }, 3000);
 </script>
 {% endif %}
-
-<script>
-document.getElementById('fileInput').addEventListener('change', function() {
-    document.getElementById('uploadForm').submit();
-});
-</script>
 
 <script>
 function copyLink() {
