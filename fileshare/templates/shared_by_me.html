@@ -497,9 +497,9 @@
 
            <div class="row align-items-center mb-4 g-3">
   <!-- Search bar -->
-<form method="get" action="{% url 'home' %}" class="col-12 col-md-8 position-relative">
+<form method="get" action="{% url 'shared_by_me' %}" class="col-12 col-md-8 position-relative">
     <i class="fas fa-search search-icon"></i>
-    <input type="text" name="q" value="{{ request.GET.q }}" class="form-control search-input" placeholder="Search Uploaded files ...">
+    <input type="text" name="q" value="{{ request.GET.q }}" class="form-control search-input" placeholder="Search Shared files ...">
 </form>
 
 
@@ -517,12 +517,14 @@
   </div>
 </div>
 <h5 class="section-title">Share to other organization</h5>
+<form method="post" action="{% url 'shared_by_me' %}">
+    {% csrf_token %}
 <div class="row mb-4 g-3">
   <!-- Left Block -->
   <div class="col-md-6">
     <div class="mb-3">
       <label for="orgTag" class="form-label text-light">Organization Tag</label>
-      <select id="orgTag" class="form-select">
+      <select id="orgTag" name="org_tag" class="form-select">
         <option selected disabled>Select Organization</option>
         {% for org in shareable_orgs %}
          <option value="{{ org }}">{{ org }}</option>
@@ -531,7 +533,7 @@
     </div>
     <div class="mb-3">
       <label for="fileName" class="form-label text-light">File Name</label>
-      <select id="fileName" class="form-select">
+      <select id="fileName" name="file_name" class="form-select">
         <option selected disabled>Select File</option>
         {% for fname in uploaded_filenames %}
             <option value="{{ fname }}">{{ fname }}</option>
@@ -540,7 +542,7 @@
     </div>
     <div class="mb-3">
       <label for="shared_users" class="form-label text-light">Users</label>
-      <input type="text" id="shared_users" class="form-control" placeholder="Enter user ids seperated by comma">
+      <input type="text" id="shared_users" name="user_ids" class="form-control" placeholder="Enter user ids seperated by comma">
     </div>
   </div>
 
@@ -549,14 +551,14 @@
     <div class="mb-3">
       <label class="form-label text-light">Duration</label>
       <div class="d-flex gap-2">
-        <input type="date" class="form-control">
-        <input type="date" class="form-control">
+        <input type="datetime-local" name="start_date" class="form-control">
+        <input type="datetime-local" name="start_date" class="form-control">
       </div>
     </div>
     <div class="mb-3">
       <label for="generatedLink" class="form-label text-light">Generated Link</label>
-      <input type="text" id="generatedLink" class="form-control" readonly placeholder="Link will appear here">
-      <button class="btn btn-outline-secondary" type="button" onclick="copyLink()">Copy</button>
+      <input type="text" id="generatedLink" class="form-control" readonly placeholder="Link will appear here"
+        value="{% if generated_link %}{{ generated_link }}{% else %}Link will appear here{% endif %}">
     </div>
   </div>
 
@@ -564,18 +566,21 @@
   <div class="col-12 text-end">
     <button type="submit" class="btn btn-primary">Generate Link</button>
   </div>
+  </form>
 </div>
 
             <div class="controls-section">
-                <h4 class="section-title mb-0">All Files</h4>
+                <h4 class="section-title mb-0">Shared Files</h4>
                 <div class="controls-right">
-                    <form method="get" action="{% url 'home' %}" id="filterForm">
-                        <select name="file_type" class="form-select" aria-label="Filter"
+                    <form method="get" action="{% url 'shared_by_me' %}" id="filterForm">
+                        <select name="status" class="form-select" aria-label="Filter"
                                 onchange="document.getElementById('filterForm').submit();">
-                            <option value="">All Files</option>
-                            {% for ft in filter %}
-                                <option value="{{ ft }}">{{ ft|upper }}</option>
-                            {% endfor %}
+                        <option value="">All Status</option>
+                        {% for value in filter %}
+                            <option value="{{ value }}" {% if value == request.GET.status %}selected{% endif %}>
+                            {{ value|upper }}
+                            </option>
+                        {% endfor %}
                         </select>
                     </form>
                 </div>

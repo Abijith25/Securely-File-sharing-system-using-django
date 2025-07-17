@@ -253,13 +253,114 @@ def logout_view(request):
     # Redirect to login page
     return redirect('login')
 
+from datetime import datetime, timedelta
+from django.http import HttpResponse, Http404
+
+def shared_with_me_table(user_id,search_query=''):
+    with connection.cursor() as cursor:
+        if search_query:
+            cursor.execute("""
+                SELECT d.doc_id,d.doc_name, d.doc_type, s.shared_at, s.shared_by_user_id
+                FROM shared_documents s
+                JOIN documents d ON s.doc_id = d.doc_id
+                WHERE s.shared_user_id = %s
+                  AND s.shared_status = %s
+                  AND (LOWER(d.doc_name) LIKE %s OR LOWER(d.doc_type) LIKE %s)
+                ORDER BY s.shared_at DESC
+            """, [
+                user_id, 'Internal',
+                f'%{search_query.lower()}%', f'%{search_query.lower()}%'
+            ])
+            return cursor.fetchall()
+        else:
+            with connection.cursor() as cursor:
+                cursor.execute("""
+                    SELECT d.doc_id,d.doc_name, d.doc_type, s.shared_at, s.shared_by_user_id
+                    FROM shared_documents s
+                    JOIN documents d ON s.doc_id = d.doc_id
+                    WHERE s.shared_user_id = %s and s.shared_status = 'Internal'
+                    ORDER BY s.shared_at DESC
+                """, [user_id])
+                return cursor.fetchall()
+
+
 def shared_with_me(request):
     user_id = request.session.get('user_id')
     user_info = user_profile(user_id)
-    return render(request, 'shared_with_me.html',{
-        'user_name': user_info['user_name'], 
+    search_query = request.GET.get('q', '').strip()
+    shared_files = shared_with_me_table(user_id,search_query)
+
+    if request.method == 'POST':
+        access_link = request.POST.get('shared_link', '').strip()
+        access_token = access_link.strip('/').split('/')[-1]
+
+        with connection.cursor() as cursor:
+            cursor.execute("""
+                SELECT d.doc_id, d.doc_name, d.encryption_key, s.shared_at, s.time_limit, 
+                       s.download_count, s.current_download_count
+                FROM shared_documents s
+                JOIN documents d ON s.doc_id = d.doc_id
+                WHERE s.access_token=%s AND s.shared_user_id=%s
+            """, [access_token, user_id])
+            row = cursor.fetchone()
+
+        if not row:
+            return HttpResponse("You don't have access to this file.", status=403)
+
+        doc_id, doc_name, encryption_key, shared_at, time_limit, download_count, current_download_count = row
+
+        # Check expiry
+        expires_at = shared_at + time_limit
+        if datetime.now() > expires_at:
+            return HttpResponse("Link has expired.", status=403)
+
+        # Check download count
+        if current_download_count >= download_count:
+            return HttpResponse("Download limit exceeded.", status=403)
+
+        # ✅ Update access_status and count
+        with connection.cursor() as cursor:
+            cursor.execute("""
+                UPDATE shared_documents
+                SET current_download_count = current_download_count + 1,
+                    access_status = %s
+                WHERE access_token=%s AND shared_user_id=%s
+            """, ['yes', access_token, user_id])
+
+        # Decrypt file (reuse your decrypt logic inline)
+        key_b64, nonce_b64, tag_b64 = encryption_key.split(':')
+        key = base64.b64decode(key_b64)
+        nonce = base64.b64decode(nonce_b64)
+        tag = base64.b64decode(tag_b64)
+
+        encrypted_filename = f"enc_{doc_name}"
+        file_path = os.path.join('media/uploads/', encrypted_filename)
+        with open(file_path, 'rb') as f:
+            ciphertext = f.read()
+
+        cipher = Cipher(algorithms.AES(key), modes.GCM(nonce, tag), backend=default_backend())
+        decryptor = cipher.decryptor()
+        plaintext = decryptor.update(ciphertext) + decryptor.finalize()
+
+        # Send decrypted file
+        response = HttpResponse(plaintext, content_type='application/octet-stream')
+        response['Content-Disposition'] = f'attachment; filename="{doc_name}"'
+        return response
+
+    # GET: just render page
+    return render(request, 'shared_with_me.html', {
+        'user_name': user_info['user_name'],
         'role': user_info['user_role'],
+        'shared_files': shared_files,
+        'search_query': search_query,
     })
+
+
+
+
+
+
+
 
 def shareable_organizations(user_id):
     with connection.cursor() as cursor:
@@ -304,6 +405,28 @@ def shared_documents(user_id):
         """, [user_id])
         return cursor.fetchall()
 
+def get_shared_files_by_user(user_id, search_query='',selected_status=''):
+    with connection.cursor() as cursor:
+        query = """
+            SELECT d.doc_id,d.doc_name, d.doc_type, s.shared_user_id, s.shared_at,s.shared_status, s.access_status,s.download_count,s.current_download_count
+            FROM shared_documents s
+            JOIN documents d ON s.doc_id = d.doc_id
+            WHERE d.uploaded_user = %s
+        """
+        params = [user_id]
+        if search_query:
+            query += " AND (LOWER(d.doc_name) LIKE %s OR LOWER(s.shared_user_id) LIKE %s)"
+            params += ['%' + search_query.lower() + '%', '%' + search_query.lower() + '%']
+
+        if selected_status:
+            query += " AND s.shared_status = %s"
+            params.append(selected_status)
+
+        query += " ORDER BY s.shared_at DESC"
+
+        cursor.execute(query, params)
+        return cursor.fetchall()
+
 def filter_shared_by_me(user_id):
     with connection.cursor() as cursor:
         cursor.execute("""
@@ -316,6 +439,45 @@ def filter_shared_by_me(user_id):
         rows = cursor.fetchall()
         return [row[0] for row in rows]
 
+def create_shared_link(user_id, org_tag, file_name, user_ids_raw, start_date_str, end_date_str):
+    user_ids = [u.strip() for u in user_ids_raw.split(',') if u.strip()]
+
+    try:
+        start_date = datetime.strptime(start_date_str, '%Y-%m-%dT%H:%M')
+        end_date = datetime.strptime(end_date_str, '%Y-%m-%dT%H:%M')
+    except Exception:
+        start_date = end_date = datetime.now()
+    time_limit = end_date - start_date
+
+    # find doc_id of file uploaded by user
+    with connection.cursor() as cursor:
+        cursor.execute("""
+            SELECT doc_id FROM documents
+            WHERE doc_name=%s AND uploaded_user=%s
+        """, [file_name, user_id])
+        row = cursor.fetchone()
+        doc_id = row[0] if row else None
+
+    if doc_id:
+        # generate single access token
+        access_token = str(uuid.uuid4())
+
+        for shared_user_id in user_ids:
+            with connection.cursor() as cursor:
+                cursor.execute("""
+                    INSERT INTO shared_documents (
+                        doc_id, shared_user_id, shared_at, shared_status,
+                        access_token, access_status, download_count, current_download_count, time_limit,shared_by_user_id
+                    ) VALUES (%s, %s, NOW(), %s, %s, %s, %s, %s, %s,%s)
+                """, [
+                    doc_id, shared_user_id, 'External', access_token, 'no', 2, 0, time_limit,user_id
+                ])
+
+        # return the single generated link
+        return f"/access/{access_token}/"
+    else:
+        return None
+
 
 def shared_by_me(request):
     user_id = request.session.get('user_id')
@@ -324,6 +486,21 @@ def shared_by_me(request):
     uploaded_filenames = get_uploaded_filenames(user_id)
     shared_files = shared_documents(user_id)
     filter=filter_shared_by_me(user_id)
+    search_query = request.GET.get('q', '').strip()
+    selected_status = request.GET.get('status', '').strip()
+    shared_files = get_shared_files_by_user(user_id, search_query, selected_status)
+
+    generated_link = None
+    if request.method == 'POST':
+        org_tag = request.POST.get('org_tag')
+        file_name = request.POST.get('file_name')
+        user_ids_raw = request.POST.get('user_ids', '')
+        start_date_str = request.POST.get('start_date')
+        end_date_str = request.POST.get('end_date')
+
+        generated_link = create_shared_link(
+            user_id, org_tag, file_name, user_ids_raw, start_date_str, end_date_str
+        )
     return render(request, 'shared_by_me.html',
         {
         'user_name': user_info['user_name'], 
@@ -331,6 +508,7 @@ def shared_by_me(request):
         'shareable_orgs': shareable_orgs,
         'uploaded_filenames': uploaded_filenames,
         'shared_files':shared_files,
-        'filter':filter
+        'filter':filter,
+        'generated_link': generated_link,
     }
     )
