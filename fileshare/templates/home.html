@@ -36,6 +36,7 @@
             line-height: 1.6;
             color: var(--text-primary);
             font-weight: 400;
+            overflow-y: hidden; 
         }
 
         .sidebar {
@@ -299,7 +300,7 @@
             font-size: 0.875rem;
             font-weight: 500;
             background-color: #1f2937;
-	  color:white;
+	        color:white;
             box-shadow: var(--shadow-sm);
             transition: all 0.2s ease;
         }
@@ -334,8 +335,16 @@
             border-radius: 0.75rem;
             box-shadow:  var(--primary-color);
             border: 1px solid var(--border-color);
-            overflow: hidden;
+            overflow-y: auto;
+            overflow-x: hidden;
+            max-height: 400px;
         }
+        .table-container::-webkit-scrollbar {
+            width: 0px;
+            background: transparent;
+            height: 0;
+        }
+
 
         .table {
             margin-bottom: 0;
@@ -343,6 +352,9 @@
         }
 
         .table thead th {
+            position: sticky;            /* NEW: keep header pinned */
+            top: 0;                      /* stick to top of container */
+            z-index: 1; 
             background-color: #111827;
             border-bottom: 1px solid var(--border-color);
             padding: 1rem;
@@ -393,6 +405,41 @@
             color: var(--text-secondary);
             font-size: 0.8rem;
             font-weight: 400;
+        }
+
+        .modal-content {
+        background-color: #1f2937; /* dark background matching your table / theme */
+        color: var(--text-primary);
+        border: 1px solid var(--border-color);
+        border-radius: 0.5rem;
+        box-shadow: var(--shadow-lg);
+        }
+
+        .modal-header,
+        .modal-footer {
+        border-color: var(--border-color);
+        background-color: #111827; /* slightly darker for header/footer */
+        }
+
+        .modal-title {
+        color: var(--primary-color);
+        font-weight: 600;
+        }
+
+        .btn-close {
+        filter: brightness(0) invert(1); /* makes close icon visible on dark */
+        }
+
+        .modal-content .form-control {
+        background-color: #374151; /* dark input background */
+        color: #f9fafb;            /* light text */
+        border: 1px solid var(--border-color);
+        }
+
+        .modal-content .form-control:focus {
+        border-color: var(--primary-color);
+        box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.2); /* subtle primary glow */
+        outline: none;
         }
 
         @media (max-width: 992px) {
@@ -517,7 +564,6 @@
   </div>
 </div>
 
-
             <h5 class="section-title">Recent Files</h5>
             <div class="row">
                 {% for ft, count in file_type_counts %}
@@ -575,7 +621,6 @@
                     <tr>
                         <th>Name</th>
                         <th>Type</th>
-                        <th>Size</th>
                         <th>Uploaded On</th>
                         <th>Share</th>  
                         <th>decrypt</th>
@@ -593,17 +638,16 @@
                             </div>
                         </td>
                         <td><span class="file-type">{{ file.2 }}</span></td>
-                        <td><span class="file-size">48 MB</span></td>
                         <td><span class="file-date">{{ file.3 }}</span></td>
                         <td>
-                            <button class="btn btn-primary file-size" data-bs-toggle="modal"
+                            <button class="btn btn-primary" data-bs-toggle="modal"
                                  data-bs-target="#shareModal" onclick="setDocId('{{ file.0 }}')">
                                     Share
                             </button>                           
                         </td>
                         <td>
                             <a href="{% url 'decrypt_and_download' file.0 %}">
-                                <button class="btn btn-primary file-size">Decrypt</button>
+                                <button class="btn btn-primary">Decrypt</button>
                             </a>                           
                         </td>
                     </tr>
@@ -633,12 +677,21 @@
         <div class="modal-body">
           <input type="hidden" name="doc_id" id="modalDocId">
           <div class="mb-3">
-            <label for="userIds" class="form-label">User IDs (comma-separated)</label>
-            <input type="text" class="form-control" name="user_ids" id="userIds" required>
-          </div>
+            <label for="userIds" class="form-label">Select User</label>
+            <select class="form-select" name="user_ids" id="userIds" required>
+                <option selected disabled>Select User</option>
+                {% for u in users_in_same_org %}
+                    <option value="{{ u.0 }}">{{ u.1 }} (ID: {{ u.0 }})</option>
+                {% endfor %}
+            </select>
+            </div>
           <div class="mb-3">
             <label for="duration" class="form-label">Share Duration (in hours)</label>
             <input type="number" class="form-control" name="duration" id="duration" min="1" required>
+          </div>
+          <div class="mb-3">
+            <label for="sharePassword" class="form-label">Password</label>
+            <input type="password" class="form-control" name="filepassword" id="sharePassword" required>
           </div>
         </div>
         <div class="modal-footer">

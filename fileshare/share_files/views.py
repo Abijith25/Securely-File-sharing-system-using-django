@@ -11,7 +11,8 @@ from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.backends import default_backend
 from django.core.files.base import ContentFile
 from django.http import HttpResponse
-
+from django.contrib import messages
+from django.utils import timezone
 
 def user_profile(user_id):
     with connection.cursor() as cursor:
@@ -48,20 +49,22 @@ def decrypt_and_download(request, doc_id):
         row = cursor.fetchone()
         if not row:
             return HttpResponse("File not found", status=404)
-
         doc_name, encryption_key, doc_type = row
-
         # Split key, nonce, tag
         key_b64, nonce_b64, tag_b64 = encryption_key.split(':')
         key = base64.b64decode(key_b64)
         nonce = base64.b64decode(nonce_b64)
         tag = base64.b64decode(tag_b64)
-
-        # Read encrypted file from disk
+        # Read encrypted file from disk    
         encrypted_filename = f"enc_{doc_name}"
         file_path = os.path.join('media/uploads/', encrypted_filename)
         with open(file_path, 'rb') as f:
             ciphertext = f.read()
+        
+        import mimetypes
+        mimetype, _ = mimetypes.guess_type(doc_name)
+        if not mimetype:
+            mimetype = 'application/octet-stream'
 
         # Decrypt
         cipher = Cipher(algorithms.AES(key), modes.GCM(nonce, tag), backend=default_backend())
@@ -69,10 +72,9 @@ def decrypt_and_download(request, doc_id):
         plaintext = decryptor.update(ciphertext) + decryptor.finalize()
 
         # Return file as download
-        response = HttpResponse(plaintext, content_type='application/octet-stream')
+        response = HttpResponse(plaintext, content_type=mimetype)
         response['Content-Disposition'] = f'attachment; filename="{doc_name}"'
         return response
-
 
 def get_uploaded_files(user_id, search_query='', file_type_filter=''):
     with connection.cursor() as cursor:
@@ -145,6 +147,7 @@ def home(request):
     uploaded_files = []
     user_file_types = []
     file_type_counts = get_file_type_counts(user_id)
+    show_share_modal = request.session.pop('show_share_modal', False)
     if user_id:
         with connection.cursor() as cursor:
             cursor.execute("SELECT user_name, user_role,org_tag FROM users WHERE user_id=%s", [user_id])
@@ -163,10 +166,9 @@ def home(request):
             """, [user_id])
             user_file_types = [row[0] for row in cursor.fetchall()]
 
-
     if request.method == 'POST' and request.FILES.get('file'):
         uploaded_file = request.FILES['file']
-        file_name = '.'.join(uploaded_file.name.split('.')[:-1])
+        file_name = uploaded_file.name
         file_size= uploaded_file.size
         file_extension = uploaded_file.name.split('.')[-1].lower()  # gives 'pdf'
         uploaded_time = datetime.now()
@@ -175,7 +177,7 @@ def home(request):
             cursor.execute("SELECT allowed_file_type,file_size FROM organization WHERE org_tag=%s", [org_tag])
             row = cursor.fetchone()
             if row:
-                allowed_types = row[0]  # e.g., '{pdf,jpg,png}'
+                allowed_types = row[0]  # to get alloweed file types of organization
                 file_size_limit = row[1]  # e.g., 10485760 for 10MB
 
                 if file_extension not in allowed_types:
@@ -222,13 +224,25 @@ def home(request):
                     fs.save(encrypted_filename, ContentFile(ciphertext))
                     show_toast = True  # or redirect elsewhere after upload
 
+    users_in_same_org = []
+    if org_tag:
+        with connection.cursor() as cursor:
+            cursor.execute("""
+                SELECT user_id, user_name
+                FROM users
+                WHERE org_tag=%s AND user_id != %s
+            """, [org_tag, user_id])
+            users_in_same_org = cursor.fetchall()
+
     return render(request, 'home.html', {'user_name': user_name, 
                                          'role': role, 
                                          'show_toast': show_toast, 
                                          'error_message': error_message,
                                          'uploaded_files': uploaded_files,
                                          'user_file_types': user_file_types,
-                                         'file_type_counts': file_type_counts})
+                                         'file_type_counts': file_type_counts,
+                                         'show_share_modal': show_share_modal,
+                                         'users_in_same_org': users_in_same_org,})
 
 # Create your views here.
 def user_login(request):
@@ -253,7 +267,7 @@ def logout_view(request):
     # Redirect to login page
     return redirect('login')
 
-from datetime import datetime, timedelta
+from datetime import timedelta
 from django.http import HttpResponse, Http404
 
 def shared_with_me_table(user_id,search_query=''):
@@ -296,8 +310,8 @@ def shared_with_me(request):
 
         with connection.cursor() as cursor:
             cursor.execute("""
-                SELECT d.doc_id, d.doc_name, d.encryption_key, s.shared_at, s.time_limit, 
-                       s.download_count, s.current_download_count
+                SELECT d.doc_id, d.doc_name, d.encryption_key, s.shared_at, s.time_limit,
+                       s.download_count, s.current_download_count,s.ends_at
                 FROM shared_documents s
                 JOIN documents d ON s.doc_id = d.doc_id
                 WHERE s.access_token=%s AND s.shared_user_id=%s
@@ -305,18 +319,25 @@ def shared_with_me(request):
             row = cursor.fetchone()
 
         if not row:
-            return HttpResponse("You don't have access to this file.", status=403)
+            messages.error(request, "You don't have access to this file.")
+            return redirect('shared_with_me')
 
-        doc_id, doc_name, encryption_key, shared_at, time_limit, download_count, current_download_count = row
+        doc_id, doc_name, encryption_key, shared_at, time_limit, download_count, current_download_count,end = row
 
         # Check expiry
         expires_at = shared_at + time_limit
-        if datetime.now() > expires_at:
-            return HttpResponse("Link has expired.", status=403)
+        print("shared_at:", shared_at, type(shared_at))
+        print("time_limit:", time_limit, type(time_limit))
+
+        if datetime.now() > end:
+            messages.error(request, "Link has expired.")
+            return redirect('shared_with_me')
 
         # Check download count
         if current_download_count >= download_count:
-            return HttpResponse("Download limit exceeded.", status=403)
+            messages.error(request, "Download limit exceeded.")
+            return redirect('shared_with_me')
+
 
         # ✅ Update access_status and count
         with connection.cursor() as cursor:
@@ -337,13 +358,16 @@ def shared_with_me(request):
         file_path = os.path.join('media/uploads/', encrypted_filename)
         with open(file_path, 'rb') as f:
             ciphertext = f.read()
-
+        import mimetypes
+        mimetype, _ = mimetypes.guess_type(doc_name)
+        if not mimetype:
+            mimetype = 'application/octet-stream'
         cipher = Cipher(algorithms.AES(key), modes.GCM(nonce, tag), backend=default_backend())
         decryptor = cipher.decryptor()
         plaintext = decryptor.update(ciphertext) + decryptor.finalize()
 
         # Send decrypted file
-        response = HttpResponse(plaintext, content_type='application/octet-stream')
+        response = HttpResponse(plaintext, content_type=mimetype)
         response['Content-Disposition'] = f'attachment; filename="{doc_name}"'
         return response
 
@@ -354,12 +378,6 @@ def shared_with_me(request):
         'shared_files': shared_files,
         'search_query': search_query,
     })
-
-
-
-
-
-
 
 
 def shareable_organizations(user_id):
@@ -441,7 +459,6 @@ def filter_shared_by_me(user_id):
 
 def create_shared_link(user_id, org_tag, file_name, user_ids_raw, start_date_str, end_date_str):
     user_ids = [u.strip() for u in user_ids_raw.split(',') if u.strip()]
-
     try:
         start_date = datetime.strptime(start_date_str, '%Y-%m-%dT%H:%M')
         end_date = datetime.strptime(end_date_str, '%Y-%m-%dT%H:%M')
@@ -449,6 +466,17 @@ def create_shared_link(user_id, org_tag, file_name, user_ids_raw, start_date_str
         start_date = end_date = datetime.now()
     time_limit = end_date - start_date
 
+    # ✅ Check: do all user_ids really belong to selected org_tag?
+    with connection.cursor() as cursor:
+        cursor.execute("""
+            SELECT user_id FROM users WHERE user_id = ANY(%s) AND org_tag=%s
+        """, [user_ids, org_tag])
+        valid_user_ids = [row[0] for row in cursor.fetchall()]
+
+    if len(valid_user_ids) != len(user_ids):
+        # Some user IDs are invalid / not in the selected org
+        raise ValueError("Cannot share: some user IDs do not belong to the selected organization.")
+    
     # find doc_id of file uploaded by user
     with connection.cursor() as cursor:
         cursor.execute("""
@@ -461,16 +489,16 @@ def create_shared_link(user_id, org_tag, file_name, user_ids_raw, start_date_str
     if doc_id:
         # generate single access token
         access_token = str(uuid.uuid4())
-
+        shared_at = timezone.now()
         for shared_user_id in user_ids:
             with connection.cursor() as cursor:
                 cursor.execute("""
                     INSERT INTO shared_documents (
                         doc_id, shared_user_id, shared_at, shared_status,
-                        access_token, access_status, download_count, current_download_count, time_limit,shared_by_user_id
-                    ) VALUES (%s, %s, NOW(), %s, %s, %s, %s, %s, %s,%s)
+                        access_token, access_status, download_count, current_download_count, time_limit,shared_by_user_id,ends_at
+                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s,%s,%s)
                 """, [
-                    doc_id, shared_user_id, 'External', access_token, 'no', 2, 0, time_limit,user_id
+                    doc_id, shared_user_id,shared_at,'External', access_token, 'no', 2, 0, time_limit,user_id,end_date
                 ])
 
         # return the single generated link
@@ -497,10 +525,15 @@ def shared_by_me(request):
         user_ids_raw = request.POST.get('user_ids', '')
         start_date_str = request.POST.get('start_date')
         end_date_str = request.POST.get('end_date')
-
-        generated_link = create_shared_link(
-            user_id, org_tag, file_name, user_ids_raw, start_date_str, end_date_str
-        )
+        try:
+            generated_link = create_shared_link(
+                user_id, org_tag, file_name, user_ids_raw, start_date_str, end_date_str
+            )
+            if not generated_link:
+                messages.error(request, "Could not generate link. Please check details.")
+        except ValueError as e:
+            messages.error(request, str(e))
+    
     return render(request, 'shared_by_me.html',
         {
         'user_name': user_info['user_name'], 

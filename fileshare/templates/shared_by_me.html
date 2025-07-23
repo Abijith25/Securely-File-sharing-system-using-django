@@ -39,17 +39,20 @@
         }
 
         .sidebar {
-            background:#0b0f19;
+            background: #0b0f19;
             color: var(--primary-color);
-            min-height: 100vh;
-            padding: 2rem 1.5rem;
+            height: 100vh;                /* Fix to viewport height */
+            min-height: 100vh;            /* Ensure at least full height */
+            position: sticky;
+            top: 0;
             display: flex;
             flex-direction: column;
             justify-content: space-between;
+            padding: 2rem 1.5rem;
             box-shadow: var(--shadow-lg);
-            position: sticky;
-            top: 0;
+            overflow: hidden;            /* Prevent sidebar itself from scrolling */
         }
+
 
         .sidebar h4 {
             font-weight: 700;
@@ -122,7 +125,15 @@
             padding: 2rem;
             background-color:#111827;
             min-height: 100vh;
-        }   
+            overflow-y: auto;        /* make it scrollable vertically */
+            overflow-x: hidden;      /* prevent horizontal scrolling */
+            -ms-overflow-style: none; 
+        }  
+        .main-content::-webkit-scrollbar {
+            width: 0;
+            background: transparent;
+            height: 0;
+        } 
 
         .header {
             margin-bottom: 2rem;
@@ -334,7 +345,14 @@
             border-radius: 0.75rem;
             box-shadow:  var(--primary-color);
             border: 1px solid var(--border-color);
-            overflow: hidden;
+            overflow-y: auto;
+            overflow-x: hidden;
+            max-height: 400px;         /* or adjust as needed, e.g., 500px */
+        }
+        .table-container::-webkit-scrollbar {
+            width: 0px;
+            background: transparent;
+            height: 0;
         }
 
         .table {
@@ -343,6 +361,9 @@
         }
 
         .table thead th {
+            position: sticky;            /* NEW: keep header pinned */
+            top: 0;                      /* stick to top of container */
+            z-index: 1; 
             background-color: #111827;
             border-bottom: 1px solid var(--border-color);
             padding: 1rem;
@@ -517,6 +538,14 @@
   </div>
 </div>
 <h5 class="section-title">Share to other organization</h5>
+{% if messages %}
+  {% for message in messages %}
+    <div class="alert {% if message.tags == 'error' %}alert-danger{% else %}alert-{{ message.tags }}{% endif %}">
+      {{ message }}
+    </div>
+  {% endfor %}
+{% endif %}
+
 <form method="post" action="{% url 'shared_by_me' %}">
     {% csrf_token %}
 <div class="row mb-4 g-3">
@@ -552,7 +581,7 @@
       <label class="form-label text-light">Duration</label>
       <div class="d-flex gap-2">
         <input type="datetime-local" name="start_date" class="form-control">
-        <input type="datetime-local" name="start_date" class="form-control">
+        <input type="datetime-local" name="end_date" class="form-control">
       </div>
     </div>
     <div class="mb-3">

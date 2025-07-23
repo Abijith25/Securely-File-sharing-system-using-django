@@ -36,6 +36,7 @@
             line-height: 1.6;
             color: var(--text-primary);
             font-weight: 400;
+            overflow-y: hidden;
         }
 
         .sidebar {
@@ -335,6 +336,12 @@
             box-shadow:  var(--primary-color);
             border: 1px solid var(--border-color);
             overflow: hidden;
+            max-height: 400px;         /* or adjust as needed, e.g., 500px */
+            overflow-y: auto;
+        }
+        .table-container::-webkit-scrollbar {
+            width: 0px;
+            background: transparent;
         }
 
         .table {
@@ -343,6 +350,9 @@
         }
 
         .table thead th {
+            position: sticky;            /* NEW: keep header pinned */
+            top: 0;                      /* stick to top of container */
+            z-index: 1; 
             background-color: #111827;
             border-bottom: 1px solid var(--border-color);
             padding: 1rem;
@@ -530,7 +540,13 @@
                 </div>
                 </div>
            </form>
-
+            {% if messages %}
+                {% for message in messages %}
+                    <div class="alert {% if message.tags == 'error' %}alert-danger{% else %}alert-{{ message.tags }}{% endif %}">
+                    {{ message }}
+                    </div>
+                {% endfor %}
+            {% endif %}
 
             <div class="controls-section">
                 <h4 class="section-title mb-0">Received Files</h4>
