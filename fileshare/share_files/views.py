@@ -105,6 +105,7 @@ def share_document(request):
         doc_id = request.POST.get('doc_id')
         user_ids_raw = request.POST.get('user_ids', '')
         duration_hours = int(request.POST.get('duration', '1'))
+        entered_password = request.POST.get('filepassword', '').strip()
 
         # split user IDs and clean them
         user_ids = [uid.strip() for uid in user_ids_raw.split(',') if uid.strip()]
@@ -112,10 +113,18 @@ def share_document(request):
         # get current user's org_tag
         user_id = request.session.get('user_id')
         with connection.cursor() as cursor:
-            cursor.execute("SELECT org_tag FROM users WHERE user_id=%s", [user_id])
+            cursor.execute("SELECT org_tag,share_password FROM users WHERE user_id=%s", [user_id])
             row = cursor.fetchone()
-            org_tag = row[0] if row else None
-
+            if not row:
+                messages.error(request, "User not found.")
+                return redirect(request.META.get('HTTP_REFERER', 'home'))
+            org_tag, correct_password = row
+        if entered_password != correct_password:
+            messages.error(request, "Incorrect password. Please try again.")
+            # to keep modal open on reload
+            request.session['show_share_modal'] = True
+            return redirect(request.META.get('HTTP_REFERER', 'home'))
+        
         # get valid users in same organization
         with connection.cursor() as cursor:
             cursor.execute("""
@@ -135,6 +144,7 @@ def share_document(request):
                 """, [
                     doc_id, shared_user_id, shared_at, 'Internal', 3, 0, time_limit,user_id
                 ])
+        messages.success(request, "File shared successfully.")
         return redirect(request.META.get('HTTP_REFERER', 'home'))
 
 def home(request):
@@ -306,6 +316,7 @@ def shared_with_me(request):
 
     if request.method == 'POST':
         access_link = request.POST.get('shared_link', '').strip()
+        passswr=request.POST.get('shapass')
         access_token = access_link.strip('/').split('/')[-1]
 
         with connection.cursor() as cursor:
@@ -324,6 +335,16 @@ def shared_with_me(request):
 
         doc_id, doc_name, encryption_key, shared_at, time_limit, download_count, current_download_count,end = row
 
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT share_password FROM users WHERE user_id=%s", [user_id])
+            user_row = cursor.fetchone()
+            real_password = user_row[0] if user_row else None
+
+    #  Compare passwords
+        if real_password != passswr:
+            messages.error(request, "Incorrect password.")
+            return redirect('shared_with_me')
+
         # Check expiry
         expires_at = shared_at + time_limit
         print("shared_at:", shared_at, type(shared_at))
@@ -339,7 +360,7 @@ def shared_with_me(request):
             return redirect('shared_with_me')
 
 
-        # ✅ Update access_status and count
+        #  Update access_status and count
         with connection.cursor() as cursor:
             cursor.execute("""
                 UPDATE shared_documents
@@ -513,7 +534,7 @@ def shared_by_me(request):
     shareable_orgs = shareable_organizations(user_id)
     uploaded_filenames = get_uploaded_filenames(user_id)
     shared_files = shared_documents(user_id)
-    filter=filter_shared_by_me(user_id)
+    filter = filter_shared_by_me(user_id)
     search_query = request.GET.get('q', '').strip()
     selected_status = request.GET.get('status', '').strip()
     shared_files = get_shared_files_by_user(user_id, search_query, selected_status)
@@ -525,23 +546,33 @@ def shared_by_me(request):
         user_ids_raw = request.POST.get('user_ids', '')
         start_date_str = request.POST.get('start_date')
         end_date_str = request.POST.get('end_date')
-        try:
-            generated_link = create_shared_link(
-                user_id, org_tag, file_name, user_ids_raw, start_date_str, end_date_str
-            )
-            if not generated_link:
-                messages.error(request, "Could not generate link. Please check details.")
-        except ValueError as e:
-            messages.error(request, str(e))
-    
-    return render(request, 'shared_by_me.html',
-        {
-        'user_name': user_info['user_name'], 
+        passw = request.POST.get('shareextpassword')
+
+        # get user's share_password from DB
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT share_password FROM users WHERE user_id=%s", [user_id])
+            row = cursor.fetchone()
+            real_pass = row[0] if row else None
+
+        #  compare
+        if real_pass and passw != real_pass:
+            messages.error(request, "Incorrect password for sharing.")
+        else:
+            try:
+                generated_link = create_shared_link(
+                    user_id, org_tag, file_name, user_ids_raw, start_date_str, end_date_str
+                )
+                if not generated_link:
+                    messages.error(request, "Could not generate link. Please check details.")
+            except ValueError as e:
+                messages.error(request, str(e))
+
+    return render(request, 'shared_by_me.html', {
+        'user_name': user_info['user_name'],
         'role': user_info['user_role'],
         'shareable_orgs': shareable_orgs,
         'uploaded_filenames': uploaded_filenames,
-        'shared_files':shared_files,
-        'filter':filter,
+        'shared_files': shared_files,
+        'filter': filter,
         'generated_link': generated_link,
-    }
-    )
+    })
