@@ -37,8 +37,17 @@ def get_file_type_counts(user_id):
         """, [user_id])
         return cursor.fetchall()
 
+def decrypt_and_download(request,doc_id):
+    entered_password = ''
+    real_password = ''
+    if request.method == 'POST':
+        entered_password = request.POST.get('filepassword')
+        user_id = request.session.get('user_id')
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT share_password FROM users WHERE user_id=%s", [user_id])
+            row = cursor.fetchone()
+            real_password = row[0] if row else None
 
-def decrypt_and_download(request, doc_id):
     with connection.cursor() as cursor:
         # Fetch file details and encryption info from DB
         cursor.execute("""
@@ -50,7 +59,11 @@ def decrypt_and_download(request, doc_id):
         if not row:
             return HttpResponse("File not found", status=404)
         doc_name, encryption_key, doc_type = row
+    
+    if entered_password != real_password:
+        return redirect('home')
         # Split key, nonce, tag
+    else:
         key_b64, nonce_b64, tag_b64 = encryption_key.split(':')
         key = base64.b64decode(key_b64)
         nonce = base64.b64decode(nonce_b64)

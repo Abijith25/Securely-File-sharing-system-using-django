@@ -646,9 +646,14 @@
                             </button>                           
                         </td>
                         <td>
+                             <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#decryptModal{{ file.0 }}">
+                                Decrypt
+                            </button>
+                            <!--
                             <a href="{% url 'decrypt_and_download' file.0 %}">
                                 <button class="btn btn-primary">Decrypt</button>
-                            </a>                           
+                            </a>     
+                            -->                      
                         </td>
                     </tr>
                     {% empty %}
@@ -675,13 +680,6 @@
           <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
         </div>
         <div class="modal-body">
-            {% if messages %}
-                {% for message in messages %}
-                    <div class="alert {% if message.tags == 'error' %}alert-danger{% else %}alert-{{ message.tags }}{% endif %}">
-                    {{ message }}
-                    </div>
-                {% endfor %}
-            {% endif %}
 
           <input type="hidden" name="doc_id" id="modalDocId">
           <div class="mb-3">
@@ -710,6 +708,34 @@
     </div>
   </div>
 </div>
+
+<!-- Decrypt Modal -->
+{% for file in uploaded_files %}
+<div class="modal fade" id="decryptModal{{ file.0 }}" tabindex="-1" aria-labelledby="decryptModalLabel{{ file.0 }}" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <form method="post"  class="decryptForm" id="decryptForm" action="{% url 'decrypt_and_download' file.0 %}" target="hiddenFrame" onsubmit="refreshAfterDownload()">
+        {% csrf_token %}
+        <div class="modal-header">
+          <h5 class="modal-title" id="decryptModalLabel{{ file.0 }}">Decrypt File</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="mb-3">
+            <label for="filePassword{{ file.0 }}" class="form-label" placeholder="Enter password">Enter Password</label>
+            <input type="password" class="form-control" name="filepassword" id="filePassword{{ file.0 }}" required>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="submit" class="btn btn-primary">Decrypt</button>
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+<iframe name="hiddenFrame" style="display:none;"></iframe>
+{% endfor %}
 
 
 {% if show_toast %}
@@ -752,13 +778,21 @@ document.getElementById('fileInput').addEventListener('change', function() {
 </script>
 
 <script>
+function refreshAfterDownload() {
+    setTimeout(function(){
+        window.location.reload();
+    }, 5000);
+}
+</script>
+
+
+
+<script>
 function setDocId(docId) {
     document.getElementById('modalDocId').value = docId;
 }
 </script>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-
 </body>
 </html>
