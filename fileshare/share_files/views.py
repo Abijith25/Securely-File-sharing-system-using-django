@@ -120,10 +120,8 @@ def share_document(request):
         duration_hours = int(request.POST.get('duration', '1'))
         entered_password = request.POST.get('filepassword', '').strip()
 
-        # split user IDs and clean them
         user_ids = [uid.strip() for uid in user_ids_raw.split(',') if uid.strip()]
 
-        # get current user's org_tag
         user_id = request.session.get('user_id')
         with connection.cursor() as cursor:
             cursor.execute("SELECT org_tag,share_password FROM users WHERE user_id=%s", [user_id])
@@ -136,6 +134,7 @@ def share_document(request):
             messages.error(request, "Incorrect password. Please try again.")
             # to keep modal open on reload
             request.session['show_share_modal'] = True
+            request.session['share_modal_doc_id'] = doc_id
             return redirect(request.META.get('HTTP_REFERER', 'home'))
         
         # get valid users in same organization
@@ -171,6 +170,7 @@ def home(request):
     user_file_types = []
     file_type_counts = get_file_type_counts(user_id)
     show_share_modal = request.session.pop('show_share_modal', False)
+    share_modal_doc_id = request.session.pop('share_modal_doc_id', '') 
     if user_id:
         with connection.cursor() as cursor:
             cursor.execute("SELECT user_name, user_role,org_tag FROM users WHERE user_id=%s", [user_id])
@@ -265,7 +265,8 @@ def home(request):
                                          'user_file_types': user_file_types,
                                          'file_type_counts': file_type_counts,
                                          'show_share_modal': show_share_modal,
-                                         'users_in_same_org': users_in_same_org,})
+                                         'users_in_same_org': users_in_same_org,
+                                         'share_modal_doc_id': share_modal_doc_id,})
 
 # Create your views here.
 def user_login(request):

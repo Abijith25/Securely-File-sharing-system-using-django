@@ -681,7 +681,7 @@
         </div>
         <div class="modal-body">
 
-          <input type="hidden" name="doc_id" id="modalDocId">
+          <input type="hidden" name="doc_id" id="modalDocId" value="{{ file.0 }}">
           <div class="mb-3">
             <label for="userIds" class="form-label">Select User</label>
             <select class="form-select" name="user_ids" id="userIds" required>
@@ -708,6 +708,7 @@
     </div>
   </div>
 </div>
+
 
 <!-- Decrypt Modal -->
 {% for file in uploaded_files %}
@@ -737,6 +738,12 @@
 <iframe name="hiddenFrame" style="display:none;"></iframe>
 {% endfor %}
 
+{% if messages %}
+  {% for message in messages %}
+    <div class="alert alert-{{ message.tags }}">{{ message }}</div>
+  {% endfor %}
+{% endif %}
+
 
 {% if show_toast %}
 <div id="toast" style="
@@ -756,14 +763,6 @@
   File uploaded successfully!
 </div>
 
-{% if show_share_modal %}
-<script>
-    var myModal = new bootstrap.Modal(document.getElementById('shareModal'));
-    myModal.show();
-</script>
-{% endif %}
-
-
 <script>
   var toast = document.getElementById("toast");
   toast.style.visibility = "visible";
@@ -771,11 +770,29 @@
 </script>
 {% endif %}
 
+{% if show_share_modal %}
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    var modal = new bootstrap.Modal(document.getElementById('shareModal'));
+    modal.show();
+  });
+</script>
+{% if share_modal_doc_id %}
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    document.getElementById('modalDocId').value = '{{ share_modal_doc_id }}';
+  });
+</script>
+{% endif %}
+{% endif %}
+
+
 <script>
 document.getElementById('fileInput').addEventListener('change', function() {
     document.getElementById('uploadForm').submit();
 });
 </script>
+
 
 <script>
 function refreshAfterDownload() {
